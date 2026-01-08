@@ -7,27 +7,28 @@ import org.springframework.stereotype.Service;
 @Service
 public class SalaryCalculatorService {
 
+    private static final double PENSION_PERCENT = 0.018; // 1.8%
     private static final double AM_BIDRAG_PERCENT = 0.08; // 8%
     private static final double TAX_PERCENT = 0.38;       // 38%
+    private static final double FRADRAG = 4230.0;         // DKK
     private static final double UNION_FEE = 30.0;         // DKK
 
     public SalaryResult calculate(SalaryInput input) {
-        double grossSalary = input.getHourlyRate() * input.getHoursWorked();
+        double B = input.getHourlyRate() * input.getHoursWorked(); // Gross salary
 
-        double amBidrag = grossSalary * AM_BIDRAG_PERCENT;
-        double salaryAfterAmBidrag = grossSalary - amBidrag;
+        // 1. Egen pension
+        double egenPension = B * PENSION_PERCENT;
 
-        double pension = 0;
-        if (input.getPensionPercentage() != null) {
-            pension = salaryAfterAmBidrag * (input.getPensionPercentage() / 100);
-        }
+        // 2. AM-bidrag
+        double amBidrag = (B - egenPension) * AM_BIDRAG_PERCENT;
 
-        double tax = (salaryAfterAmBidrag - pension) * TAX_PERCENT;
+        // 3. A-skat (taxable income minus fradrag)
+        double taxableIncome = B - egenPension - amBidrag - FRADRAG;
+        double aSkat = taxableIncome > 0 ? taxableIncome * TAX_PERCENT : 0;
 
-        double otherDeductions = input.getOtherDeductions() != null ? input.getOtherDeductions() : 0;
+        // 4. Net salary
+        double netto = B - egenPension - amBidrag - aSkat - UNION_FEE;
 
-        double netSalary = salaryAfterAmBidrag - pension - tax - UNION_FEE - otherDeductions;
-
-        return new SalaryResult(netSalary, amBidrag, tax, pension, UNION_FEE, otherDeductions);
+        return new SalaryResult(netto, amBidrag, aSkat, egenPension, UNION_FEE, 0);
     }
 }
